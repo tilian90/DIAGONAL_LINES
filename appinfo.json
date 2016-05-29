@@ -1,0 +1,44 @@
+{
+    "appKeys": {},
+    "capabilities": [
+        ""
+    ],
+    "companyName": "tilian90@yandex.ru",
+    "enableMultiJS": true,
+    "longName": "diagonal_lines",
+    "projectType": "native",
+    "resources": {
+        "media": [
+            {
+                "file": "images/diagonal.png",
+                "name": "BACKGROUND",
+                "targetPlatforms": null,
+                "type": "bitmap"
+            },
+            {
+                "file": "fonts/WREXHAM_.TTF",
+                "name": "WREXHAM_12",
+                "targetPlatforms": null,
+                "type": "font"
+            },
+            {
+                "file": "fonts/WREXHAM_.TTF",
+                "name": "WREXHAM_42",
+                "targetPlatforms": null,
+                "type": "font"
+            }
+        ]
+    },
+    "sdkVersion": "3",
+    "shortName": "diagonal_lines",
+    "targetPlatforms": [
+        "aplite",
+        "basalt",
+        "chalk"
+    ],
+    "uuid": "58bf9f94-0bb6-4a04-a625-abbfe2437bdf",
+    "versionLabel": "1.0",
+    "watchapp": {
+        "watchface": true
+    }
+}
