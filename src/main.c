@@ -7,6 +7,37 @@ static BitmapLayer *s_background_image_layer;
 static GBitmap *s_background_image_bitmap;
 static GFont s_time_font, s_date_font;
 
+static void update_time() {
+  // Get a tm structure
+  time_t temp = time(NULL); 
+  struct tm *tick_time = localtime(&temp);
+
+  // Write the current hours and minutes into a buffer
+  static char s_hour_buffer[3];
+  static char s_minute_buffer[3];
+  static char date_buffer[8];
+  static char day_buffer[4];
+  
+  strftime(s_hour_buffer, sizeof(s_hour_buffer), clock_is_24h_style() ?
+                                          "%H" : "%I", tick_time);
+  strftime(s_minute_buffer, sizeof(s_minute_buffer),"%M", tick_time);
+  strftime(date_buffer, sizeof(date_buffer), "%d %b", tick_time);
+  strftime(day_buffer, sizeof(day_buffer), "%a", tick_time);
+
+  // Display this time on the TextLayer
+  text_layer_set_text(s_upper_text, s_hour_buffer);
+  text_layer_set_text(s_lower_text, s_minute_buffer);
+  text_layer_set_text(s_date_layer, date_buffer);
+  text_layer_set_text(s_day_layer, day_buffer);
+}
+
+static void bluetooth_callback(bool connected){  
+  if(!connected){
+    vibes_double_pulse();
+  }
+  
+}
+
 static void background_proc(Layer *layer, GContext *ctx){
   GRect bounds = layer_get_bounds(layer);
   
@@ -18,6 +49,10 @@ static void background_proc(Layer *layer, GContext *ctx){
   graphics_context_set_fill_color(ctx, GColorBlack);
   graphics_fill_circle(ctx, GPoint(bounds.size.w/2, bounds.size.h/2), 53);
     
+}
+
+static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
+  update_time();
 }
 
 static void main_window_load(Window *window){
@@ -55,7 +90,7 @@ static void main_window_load(Window *window){
   text_layer_set_background_color(s_date_layer, GColorClear);
   //text_layer_set_text_color(s_front_text, GColorBlack);
   text_layer_set_text_color(s_date_layer, GColorWhite);
-  text_layer_set_text(s_date_layer, "12 May");
+  text_layer_set_text(s_date_layer, "27 May");
   text_layer_set_font(s_date_layer, s_date_font);
   text_layer_set_text_alignment(s_date_layer, GTextAlignmentCenter);
   
@@ -78,6 +113,8 @@ static void main_window_load(Window *window){
   layer_set_update_proc(s_background_layer, background_proc);
   
   layer_mark_dirty(s_background_layer);
+  
+  bluetooth_callback(connection_service_peek_pebble_app_connection());
   //window_set_background_color(s_main_window, GColorBlack);
   
 }
@@ -102,6 +139,13 @@ static void init(){
   });
   
   window_stack_push(s_main_window, true);
+  
+  update_time();
+  tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
+  
+  connection_service_subscribe((ConnectionHandlers){
+    .pebble_app_connection_handler = bluetooth_callback
+  });
   
 }
 
