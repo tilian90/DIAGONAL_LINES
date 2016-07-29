@@ -200,6 +200,7 @@ static void main_window_unload(Window *window){
   text_layer_destroy(s_day_layer);
   text_layer_destroy(s_connection_left);
   text_layer_destroy(s_connection_right);
+  text_layer_destroy(s_battery_level);
   
 }
 
