@@ -1,11 +1,12 @@
 #include <pebble.h>
 
 static Window *s_main_window;
-static TextLayer *s_lower_text, *s_upper_text, *s_date_layer, *s_day_layer;
+static TextLayer *s_lower_text, *s_upper_text, *s_date_layer, *s_day_layer, *s_connection_left, *s_connection_right, *s_battery_level;
 static Layer *s_background_layer;
 static BitmapLayer *s_background_image_layer;
 static GBitmap *s_background_image_bitmap;
 static GFont s_time_font, s_date_font;
+static uint8_t battery_level;
 
 static void update_time() {
   // Get a tm structure
@@ -31,9 +32,39 @@ static void update_time() {
   text_layer_set_text(s_day_layer, day_buffer);
 }
 
+static void battery_call_back(BatteryChargeState state){
+  battery_level = state.charge_percent;
+  if(battery_level > 99)
+    battery_level = 99;
+}
+
+static void timer_callback(void* data){
+  layer_set_hidden(text_layer_get_layer(s_battery_level), true);
+  layer_set_hidden(text_layer_get_layer(s_day_layer), false);
+}
+
+static void accel_tap_handler(AccelAxisType axis, int32_t direction){
+  static char battery_buffer[4];
+  
+  snprintf(battery_buffer, sizeof(battery_buffer), "%i%%", battery_level);
+  
+  text_layer_set_text(s_battery_level, battery_buffer);
+  
+  layer_set_hidden(text_layer_get_layer(s_battery_level), false);
+  layer_set_hidden(text_layer_get_layer(s_day_layer), true);
+  
+  app_timer_register(2000, timer_callback, NULL);
+}
+
 static void bluetooth_callback(bool connected){  
   if(!connected){
     vibes_double_pulse();
+    layer_set_hidden(text_layer_get_layer(s_connection_left), false);
+    layer_set_hidden(text_layer_get_layer(s_connection_right), false);
+  }
+  else{
+    layer_set_hidden(text_layer_get_layer(s_connection_left), true);
+    layer_set_hidden(text_layer_get_layer(s_connection_right), true);
   }
   
 }
@@ -67,8 +98,28 @@ static void main_window_load(Window *window){
   
   s_background_layer = layer_create(GRect(17, 30, 112, 112));
   
-  s_upper_text = text_layer_create(GRect(30, 40, 90, 50));
+  s_connection_left = text_layer_create(GRect(25, 77, 25, 20));
   
+  text_layer_set_background_color(s_connection_left, GColorClear);
+  text_layer_set_text_color(s_connection_left, GColorWhite);
+  text_layer_set_text(s_connection_left, "X");
+  text_layer_set_font(s_connection_left, s_date_font);
+  text_layer_set_text_alignment(s_connection_left, GTextAlignmentCenter);
+  
+  layer_set_hidden(text_layer_get_layer(s_connection_left), true);
+  
+  s_connection_right = text_layer_create(GRect(99, 77, 25, 20));
+  
+  text_layer_set_background_color(s_connection_right, GColorClear);
+  text_layer_set_text_color(s_connection_right, GColorWhite);
+  text_layer_set_text(s_connection_right, "X");
+  text_layer_set_font(s_connection_right, s_date_font);
+  text_layer_set_text_alignment(s_connection_right, GTextAlignmentCenter);
+  
+  layer_set_hidden(text_layer_get_layer(s_connection_right), true);
+  
+  s_upper_text = text_layer_create(GRect(30, 40, 90, 50));
+    
   text_layer_set_background_color(s_upper_text, GColorClear);
   //text_layer_set_text_color(s_back_text, GColorBlack);
   text_layer_set_text_color(s_upper_text, GColorWhite);
@@ -103,12 +154,27 @@ static void main_window_load(Window *window){
   text_layer_set_font(s_day_layer, s_date_font);
   text_layer_set_text_alignment(s_day_layer, GTextAlignmentCenter);
   
+  s_battery_level = text_layer_create(GRect(30, 120, 90, 50));
+  
+  text_layer_set_background_color(s_battery_level, GColorClear);
+  //text_layer_set_text_color(s_front_text, GColorBlack);
+  text_layer_set_text_color(s_battery_level, GColorWhite);
+  text_layer_set_text(s_battery_level, "99%");
+  text_layer_set_font(s_battery_level, s_date_font);
+  text_layer_set_text_alignment(s_battery_level, GTextAlignmentCenter);
+  //Hide layer on start
+  layer_set_hidden(text_layer_get_layer(s_battery_level), true);
+  
   layer_add_child(window_layer, bitmap_layer_get_layer(s_background_image_layer));
   layer_add_child(window_layer, s_background_layer);
   layer_add_child(window_layer, text_layer_get_layer(s_upper_text));
   layer_add_child(window_layer, text_layer_get_layer(s_lower_text));
   layer_add_child(window_layer, text_layer_get_layer(s_date_layer)); 
   layer_add_child(window_layer, text_layer_get_layer(s_day_layer));
+  layer_add_child(window_layer, text_layer_get_layer(s_connection_left));
+  layer_add_child(window_layer, text_layer_get_layer(s_connection_right));
+  layer_add_child(window_layer, text_layer_get_layer(s_battery_level));
+  
   
   layer_set_update_proc(s_background_layer, background_proc);
   
@@ -116,6 +182,11 @@ static void main_window_load(Window *window){
   
   bluetooth_callback(connection_service_peek_pebble_app_connection());
   //window_set_background_color(s_main_window, GColorBlack);
+  
+  // Register for battery level updates
+  battery_state_service_subscribe(battery_call_back);
+  // Show battery state on start
+  battery_call_back(battery_state_service_peek());
   
 }
 
@@ -127,6 +198,8 @@ static void main_window_unload(Window *window){
   text_layer_destroy(s_lower_text);
   text_layer_destroy(s_date_layer);
   text_layer_destroy(s_day_layer);
+  text_layer_destroy(s_connection_left);
+  text_layer_destroy(s_connection_right);
   
 }
 
@@ -147,10 +220,13 @@ static void init(){
     .pebble_app_connection_handler = bluetooth_callback
   });
   
+  accel_tap_service_subscribe(accel_tap_handler);
+  
 }
 
 static void deinit(){
   window_destroy(s_main_window);
+  tick_timer_service_unsubscribe();
 }
 
 
